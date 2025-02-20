@@ -1,6 +1,11 @@
+from random import randint
+
+from sqlmodel import Session
 from starlette.testclient import TestClient
 
 from chaos.models.profile import Profile
+from chaos.models.user import User
+from utils.authentication import generate_ownership_hash
 
 
 def test_create_profile(
@@ -71,3 +76,36 @@ def test_update_profile_unauthorized(
         headers={"Authorization": f"Bearer {alt_access_token_instance}"},
     )
     assert response.status_code == 403
+
+
+def test_get_user_profiles(
+    client: TestClient,
+    user_instance: User,
+    profile_instance: Profile,
+    access_token_instance: str,
+    alt_access_token_instance: str,
+    alt_user_instance: User,
+    example_profile_payload: dict,
+    session: Session,
+):
+    # create a bunch of alternate user profiles
+    for i in range(10):
+        args = {**example_profile_payload, "name": str(randint(0, 9999))}
+        profile = Profile(**args)
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        profile.ownership_hash = generate_ownership_hash(
+            alt_user_instance.id, profile.id
+        )
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+    response = client.get(
+        f"/users/{user_instance.id}/profiles/",
+        headers={"Authorization": f"Bearer {access_token_instance}"},
+    )
+    print(profile_instance.ownership_hash)
+    assert 199 < response.status_code < 300
+    assert len(response.json()) == 1
+    assert response.json()[0]["name"] == profile_instance.name
