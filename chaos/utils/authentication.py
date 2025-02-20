@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta
 from typing import Annotated
 
@@ -66,3 +67,9 @@ def get_current_user(token: OAuthDep, session: SessionDep):
 
 
 UserDep = Annotated[User, Depends(get_current_user)]
+
+
+def generate_ownership_hash(user_id: int, profile_id: int) -> str:
+    raw_string = f"{user_id}:{profile_id}"
+    ownership_hash = hashlib.sha256(raw_string.encode()).hexdigest()
+    return ownership_hash

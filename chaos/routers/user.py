@@ -1,12 +1,15 @@
 from typing import Sequence, Annotated
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-from config import Settings
-from dependencies import SessionDep
-from models.user import UserCreate, UserPublic, User, UserUpdate
-from utils import hash_password, UserDep
+from chaos.config import Settings
+from chaos.dependencies import SessionDep
+from chaos.models.user import UserCreate, UserPublic, User, UserUpdate
+from chaos.utils.authentication import hash_password, UserDep
+from chaos.models.profile import Profile
+from utils.authentication import generate_ownership_hash
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -16,11 +19,15 @@ def create_user(user: UserCreate, session: SessionDep):
     user.password = hash_password(user.password)
     if not user.server_wide_password == Settings().server_wide_password:
         raise HTTPException(status_code=403, detail="Not allowed")
-    db_user = User.model_validate(user)
-    session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
-    return db_user
+    try:
+        db_user = User.model_validate(user)
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
+        return db_user
+    except IntegrityError as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/", response_model=Sequence[UserPublic])
@@ -68,3 +75,16 @@ def delete_user(user_id: int, session: SessionDep, current_user: UserDep):
     session.delete(user)
     session.commit()
     return {"ok": True}
+
+
+@router.get("/{user_id}/profiles", response_model=Sequence[Profile])
+def get_user_profiles(user_id: int, session: SessionDep, current_user: UserDep):
+    if not current_user.id == user_id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    profiles = session.exec(
+        select(Profile).where(
+            Profile.ownership_hash
+            == generate_ownership_hash(current_user.id, Profile.id)
+        )
+    ).all()
+    return profiles

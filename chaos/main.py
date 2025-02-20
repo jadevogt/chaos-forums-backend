@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from sqlmodel import Field, SQLModel
-from dependencies import create_db_and_tables
-from routers.user import router as user_router
-from routers.auth import router as auth_router
-from routers.profile import router as profile_router
+from chaos.dependencies import create_db_and_tables
+from chaos.routers.user import router as user_router
+from chaos.routers.auth import router as auth_router
+from chaos.routers.profile import router as profile_router
 
 app = FastAPI()
 app.include_router(user_router)
@@ -17,9 +17,11 @@ class Post(SQLModel, table=True):
     age: int | None = Field(default=None, index=True)
 
 
-@app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+
+
+app.add_event_handler("startup", on_startup)
 
 
 @app.get("/")

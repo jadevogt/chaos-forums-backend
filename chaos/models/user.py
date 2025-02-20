@@ -1,5 +1,7 @@
 from sqlmodel import SQLModel, Field
 
+print("Importing user models from ", __name__)
+
 
 class UserBase(SQLModel):
     username: str = Field(index=True, unique=True, nullable=False)
