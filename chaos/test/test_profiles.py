@@ -105,7 +105,29 @@ def test_get_user_profiles(
         f"/users/{user_instance.id}/profiles/",
         headers={"Authorization": f"Bearer {access_token_instance}"},
     )
-    print(profile_instance.ownership_hash)
+    response2 = client.get(
+        f"/users/{alt_user_instance.id}/profiles/",
+        headers={"Authorization": f"Bearer {alt_access_token_instance}"},
+    )
     assert 199 < response.status_code < 300
     assert len(response.json()) == 1
     assert response.json()[0]["name"] == profile_instance.name
+    assert 199 < response2.status_code < 300
+    assert len(response2.json()) == 10
+
+
+def test_get_user_profiles_unauthorized(
+    client: TestClient,
+    user_instance: User,
+    profile_instance: Profile,
+    access_token_instance: str,
+    alt_access_token_instance: str,
+    alt_user_instance: User,
+    example_profile_payload: dict,
+    session: Session,
+):
+    response = client.get(
+        f"/users/{user_instance.id}/profiles/",
+        headers={"Authorization": f"Bearer {alt_access_token_instance}"},
+    )
+    assert response.status_code == 403

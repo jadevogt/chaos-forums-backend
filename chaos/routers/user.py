@@ -81,10 +81,9 @@ def delete_user(user_id: int, session: SessionDep, current_user: UserDep):
 def get_user_profiles(user_id: int, session: SessionDep, current_user: UserDep):
     if not current_user.id == user_id:
         raise HTTPException(status_code=403, detail="Not allowed")
-    profiles = session.exec(
-        select(Profile).where(
-            Profile.ownership_hash
-            == generate_ownership_hash(current_user.id, Profile.id)
-        )
-    ).all()
-    return profiles
+    profiles = session.exec(select(Profile)).all()
+    return [
+        p
+        for p in profiles
+        if p.ownership_hash == generate_ownership_hash(user_id, p.id)
+    ]
